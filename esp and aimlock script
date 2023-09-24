@@ -1,0 +1,119 @@
+-- Configuration
+local labelHeight = 10  -- Height of the label above the player's head
+local labelColor = Color3.new(1, 1, 1)  -- Color of the label text (white by default)
+
+-- Variables
+local tool = script.Parent  -- Reference to the tool
+local user = nil            -- Reference to the player holding the right mouse button
+local isRightClicking = false  -- Flag to track if right mouse button is held down
+
+-- Function to check if the player is holding the right mouse button
+local function checkRightClick()
+    if user and user:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+        return true
+    else
+        return false
+    end
+end
+
+-- Function to create a label for a player
+local function createPlayerLabel(player)
+    local character = player.Character or player.CharacterAdded:Wait()
+    local humanoid = character:WaitForChild("Humanoid")
+
+    -- Create a label
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Parent = character
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Size = UDim2.new(1, 0, 0, labelHeight)
+    nameLabel.Position = UDim2.new(0, 0, -1, 0)  -- Place above the head
+    nameLabel.Text = player.Name
+    nameLabel.TextColor3 = labelColor
+    nameLabel.Font = Enum.Font.SourceSansBold
+    nameLabel.TextSize = 14
+
+    -- Update the label's position above the head
+    local function updateLabelPosition()
+        local head = character:FindFirstChild("Head")
+        if head then
+            local headPosition = head.Position
+            nameLabel.Position = UDim2.new(0.5, 0, 0, -labelHeight - 5) -- Adjust the -5 as needed
+            nameLabel.Text = player.Name
+            nameLabel.Visible = true
+        else
+            nameLabel.Visible = false
+        end
+    end
+
+    -- Update the label's position continuously
+    humanoid:GetPropertyChangedSignal("WalkDirection"):Connect(updateLabelPosition)
+    updateLabelPosition()
+
+    -- Remove the label when the player leaves
+    player.CharacterRemoving:Connect(function()
+        nameLabel:Destroy()
+    end)
+end
+
+-- Function to lock onto the player's head
+local function lockOntoHead()
+    while isRightClicking do
+        if user and user.Character then
+            local target = user.Character:FindFirstChild("Head") -- Adjust this if your head part has a different name
+            
+            if target then
+                -- Point the tool's handle part at the player's head
+                tool.Handle.CFrame = CFrame.new(tool.Handle.Position, target.Position)
+            end
+        end
+        wait(0.1)  -- Adjust the delay as needed to control how fast it updates
+    end
+end
+
+-- Function to send a custom chat message
+local function sendCustomChatMessage(player, message)
+    local chatService = game:GetService("Chat")
+    local channel = chatService:GetChannel("All")
+    local messageData = {
+        FromSpeaker = "System",
+        Message = message,
+        Color = Color3.new(1, 1, 0), -- Yellow text color (you can customize this)
+        Font = Enum.Font.SourceSansBold,
+        TextSize = 18,
+    }
+    channel:SendSystemMessage(messageData)
+end
+
+-- Function to handle new players joining the game
+local function onPlayerAdded(player)
+    -- Customize the welcome message here
+    local welcomeMessage = "Thanks for using Sploiterz Aimlock!"
+
+    -- Send the custom chat message to the player
+    sendCustomChatMessage(player, welcomeMessage)
+
+    -- Create labels for the player
+    createPlayerLabel(player)
+end
+
+-- Event handler for when the player starts holding the right mouse button
+tool.Activated:Connect(function()
+    user = game.Players:GetPlayerFromCharacter(tool.Parent)
+    if user then
+        isRightClicking = true
+        lockOntoHead()
+    end
+end)
+
+-- Event handler for when the player releases the right mouse button
+tool.Deactivated:Connect(function()
+    isRightClicking = false
+end)
+
+-- Connect the function to new players joining
+game.Players.PlayerAdded:Connect(onPlayerAdded)
+
+-- Create labels for existing players
+for _, player in pairs(game.Players:GetPlayers()) do
+    createPlayerLabel(player)
+end
